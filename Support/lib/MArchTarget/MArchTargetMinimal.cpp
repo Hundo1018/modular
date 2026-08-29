@@ -77,21 +77,26 @@ M::getFeaturesFromClang(std::shared_ptr<clang::TargetOptions> opts,
   std::vector<std::string> features;
 
   // AARCH64 CPU features are not parsed by `CreateTargetInfo`. We have to query
-  // them and add them here manually.
-  if (std::optional<llvm::AArch64::CpuInfo> cpuInfo =
-          llvm::AArch64::parseCpu(cpu)) {
-    std::vector<std::string> updatedFeaturesVec;
-    auto exts = cpuInfo->DefaultExtensions;
-    std::vector<StringRef> cpuFeats;
-    llvm::AArch64::getExtensionFeatures(exts, cpuFeats);
-    for (StringRef f : cpuFeats) {
-      assert((f[0] == '+' || f[0] == '-') && "Expected +/- in target feature!");
-      updatedFeaturesVec.push_back(f.str());
+  // them and add them here manually. CPU model names are not unique across
+  // targets (`generic` is both an AArch64 and a WebAssembly CPU), so gate on
+  // the triple like the RISC-V block below.
+  if (llvm::Triple(opts->Triple).isAArch64()) {
+    if (std::optional<llvm::AArch64::CpuInfo> cpuInfo =
+            llvm::AArch64::parseCpu(cpu)) {
+      std::vector<std::string> updatedFeaturesVec;
+      auto exts = cpuInfo->DefaultExtensions;
+      std::vector<StringRef> cpuFeats;
+      llvm::AArch64::getExtensionFeatures(exts, cpuFeats);
+      for (StringRef f : cpuFeats) {
+        assert((f[0] == '+' || f[0] == '-') &&
+               "Expected +/- in target feature!");
+        updatedFeaturesVec.push_back(f.str());
+      }
+      llvm::StringMap<bool> featureMap;
+      targetInfo->initFeatureMap(featureMap, diags, cpu, updatedFeaturesVec);
+      for (const auto &f : featureMap)
+        opts->Features.push_back((f.getValue() ? "+" : "-") + f.getKey().str());
     }
-    llvm::StringMap<bool> featureMap;
-    targetInfo->initFeatureMap(featureMap, diags, cpu, updatedFeaturesVec);
-    for (const auto &f : featureMap)
-      opts->Features.push_back((f.getValue() ? "+" : "-") + f.getKey().str());
   }
 
   // RISC-V CPU models are not expanded by `CreateTargetInfo` either: clang
