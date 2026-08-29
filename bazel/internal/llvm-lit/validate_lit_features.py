@@ -34,6 +34,7 @@ _KNOWN_FEATURES = {
     "x86_64-linux",
     "ASSERTIONS",
     "air-objdump",
+    "wasm-backend",
 }
 
 _GPU_FEATURES = {

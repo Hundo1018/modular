@@ -48,20 +48,28 @@ from ..os import sep
 def _get_stat_st_mode(var path: String) raises -> Int:
     comptime if CompilationTarget.is_macos():
         return Int(_stat_macos(path^).st_mode)
-    elif CompilationTarget.has_neon():
+    elif CompilationTarget.is_linux() and CompilationTarget.has_neon():
         return Int(_stat_linux_arm(path^).st_mode)
-    else:
+    elif CompilationTarget.is_linux():
         return Int(_stat_linux_x86(path^).st_mode)
+    else:
+        CompilationTarget.unsupported_target_error[
+            operation="_get_stat_st_mode"
+        ]()
 
 
 @always_inline
 def _get_lstat_st_mode(var path: String) raises -> Int:
     comptime if CompilationTarget.is_macos():
         return Int(_lstat_macos(path^).st_mode)
-    elif CompilationTarget.has_neon():
+    elif CompilationTarget.is_linux() and CompilationTarget.has_neon():
         return Int(_lstat_linux_arm(path^).st_mode)
-    else:
+    elif CompilationTarget.is_linux():
         return Int(_lstat_linux_x86(path^).st_mode)
+    else:
+        CompilationTarget.unsupported_target_error[
+            operation="_get_lstat_st_mode"
+        ]()
 
 
 # ===----------------------------------------------------------------------=== #

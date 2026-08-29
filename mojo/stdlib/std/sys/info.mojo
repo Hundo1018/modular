@@ -417,6 +417,37 @@ struct CompilationTarget[value: _TargetType = _current_target()](
         )
 
     @staticmethod
+    def is_wasm() -> Bool:
+        """Checks if the target is a WebAssembly architecture.
+
+        This is an architecture check, not an instruction-set check: WebAssembly
+        SIMD (simd128) availability is a target feature, not implied by the
+        architecture.
+
+        Returns:
+            True if the target is 32- or 64-bit WebAssembly, False otherwise.
+        """
+        return Self.is_wasm32() or Self.is_wasm64()
+
+    @staticmethod
+    def is_wasm32() -> Bool:
+        """Checks if the target is a 32-bit WebAssembly architecture.
+
+        Returns:
+            True if the target is 32-bit WebAssembly, False otherwise.
+        """
+        return Self._is_triple_arch["wasm32"]()
+
+    @staticmethod
+    def is_wasm64() -> Bool:
+        """Checks if the target is a 64-bit WebAssembly architecture.
+
+        Returns:
+            True if the target is 64-bit WebAssembly, False otherwise.
+        """
+        return Self._is_triple_arch["wasm64"]()
+
+    @staticmethod
     def is_apple_m1() -> Bool:
         """Check if the target is an Apple M1 system.
 

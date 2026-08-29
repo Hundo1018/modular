@@ -15,6 +15,7 @@
 import os
 import platform
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from sysconfig import get_config_var as var
@@ -139,6 +140,25 @@ mpirun_gpu_per_process = (
 
 config.substitutions.append(("%mpirun-gpu-per-process", mpirun_gpu_per_process))
 config.substitutions.append(("%bare-mojo", mojo_exe))
+
+# Expose a WebAssembly-capable `mojo` as a lit feature so wasm cross-compile
+# tests skip cleanly under toolchains that predate the WebAssembly backend
+# (e.g. a pinned prebuilt nightly older than the backend's introduction).
+# The generated site config prepends the tool directories to os.environ PATH,
+# so resolve and run the probe against the inherited environment.
+_mojo_probe_exe = shutil.which(mojo_exe)
+if _mojo_probe_exe:
+    try:
+        _supported_targets = subprocess.run(
+            [_mojo_probe_exe, "build", "--print-supported-targets"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        ).stdout
+        if "wasm32" in _supported_targets:
+            config.available_features.add("wasm-backend")
+    except (OSError, subprocess.SubprocessError):
+        pass
 config.substitutions.append(("%{mojo_version_major}", str(config.mojo_version_major)))
 config.substitutions.append(("%{mojo_version_minor}", str(config.mojo_version_minor)))
 config.substitutions.append(("%{mojo_version_patch}", str(config.mojo_version_patch)))

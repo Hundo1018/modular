@@ -195,10 +195,12 @@ def stat[PathLike: stdPathLike](path: PathLike) raises -> stat_result:
 
     comptime if CompilationTarget.is_macos():
         return _stat_macos(fspath^)._to_stat_result()
-    elif CompilationTarget.has_neon():
+    elif CompilationTarget.is_linux() and CompilationTarget.has_neon():
         return _stat_linux_arm(fspath^)._to_stat_result()
-    else:
+    elif CompilationTarget.is_linux():
         return _stat_linux_x86(fspath^)._to_stat_result()
+    else:
+        CompilationTarget.unsupported_target_error[operation="os.stat"]()
 
 
 # ===----------------------------------------------------------------------=== #
@@ -224,7 +226,9 @@ def lstat[PathLike: stdPathLike](path: PathLike) raises -> stat_result:
 
     comptime if CompilationTarget.is_macos():
         return _lstat_macos(fspath^)._to_stat_result()
-    elif CompilationTarget.has_neon():
+    elif CompilationTarget.is_linux() and CompilationTarget.has_neon():
         return _lstat_linux_arm(fspath^)._to_stat_result()
-    else:
+    elif CompilationTarget.is_linux():
         return _lstat_linux_x86(fspath^)._to_stat_result()
+    else:
+        CompilationTarget.unsupported_target_error[operation="os.lstat"]()
