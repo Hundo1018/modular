@@ -128,6 +128,19 @@ This version is still a work in progress.
 
 ## Library changes
 
+- `Coord` has a new `replace[at](value)` method that returns a `Coord` with
+  the element at `at` swapped for `value`, keeping the other elements' types. A
+  statically known element (`ComptimeInt`) has no runtime storage to assign
+  into, so overwriting one with a runtime value yields a `Coord` of a different
+  type rather than mutating in place. Unlike `make_dynamic()`, which converts
+  every element to a `Scalar`, the untouched dimensions keep their compile-time
+  values:
+
+  ```mojo
+  var c = Coord(ComptimeInt[3](), ComptimeInt[4]())
+  var moved = c.replace[1](Int64(7))  # Coord(ComptimeInt[3](), Int64(7))
+  ```
+
 - `List.extend` and `List.resize` now grow geometrically, so repeatedly
   extending or resizing by a small increment is no longer quadratic. As a
   result `capacity()` can report more than was asked for. `reserve` is
@@ -254,6 +267,9 @@ This version is still a work in progress.
   never the contained value's own lifecycle methods. Gating conformance this way
   turns what would otherwise be silent memory-safety bugs into compile-time
   errors.
+
+- Added `deinit()`, for any `Deinitable` type, to explicitly extend a value's
+  lifetime up to a specific point and run its deinitializer there.
 
 - `Atomic` is now parameterized on a value type `T` instead of a `DType`.
   Update call sites from `Atomic[DType.float32]` to `Atomic[Float32]`. The
