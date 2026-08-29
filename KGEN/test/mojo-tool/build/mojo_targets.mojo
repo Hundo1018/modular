@@ -27,6 +27,14 @@
 # RUN: mojo build --target-triple riscv32-unknown-none-elf --target-cpu=sifive-e31 --emit=llvm -o - %s 2>&1 | FileCheck %s --implicit-check-not=ignoring --check-prefix=CHECK_RV32_CPU
 # RUN: mojo build --target-triple riscv32-unknown-none-elf --march=rv32i_zba_zbb --emit=llvm -o - %s 2>&1 | FileCheck %s --implicit-check-not=ignoring --check-prefix=CHECK_RV32_MARCH
 
+# WebAssembly. As with bare-metal RISC-V above, emission requires a registered
+# `TargetBackend`, so these also guard against wasm silently losing its
+# backend. Wasm SIMD is a target feature (`+simd128`) rather than part of the
+# CPU model, so it is pinned separately.
+# RUN: mojo build --target-triple wasm32-unknown-unknown --target-cpu=generic --emit=llvm -o - %s 2>&1 | FileCheck %s --implicit-check-not=ignoring --check-prefix=CHECK_WASM32
+# RUN: mojo build --target-triple wasm64-unknown-unknown --target-cpu=generic --emit=llvm -o - %s 2>&1 | FileCheck %s --implicit-check-not=ignoring --check-prefix=CHECK_WASM64
+# RUN: mojo build --target-triple wasm32-unknown-unknown --target-cpu=generic --target-features=+simd128 --emit=llvm -o - %s 2>&1 | FileCheck %s --implicit-check-not=ignoring --check-prefix=CHECK_WASM32_SIMD
+
 # CHECK_MACOS: target triple = "arm64-apple-macosx11.0"
 # CHECK_MACOS: "target-cpu"="apple-m1"
 # CHECK_MACOS: "target-features"="+aes,+altnzcv,+ccdp,+complxnum,+crc,+dotprod,+fp-armv8,+fp16fml,+fptoint,+fullfp16,+jsconv,+lse,+neon,+pauth,+perfmon,+predres,+ras,+rcpc,+rdm,+sb,+sha2,+sha3,+specrestrict,+ssbs"
@@ -54,6 +62,15 @@
 # CHECK_RV32_CPU: "target-features"="+32bit,+a,+c,+i,+m,+zaamo,+zalrsc,+zca,+zicsr,+zifencei,+zmmul"
 
 # CHECK_RV32_MARCH: "target-features"="+32bit,+i,+zba,+zbb"
+
+# CHECK_WASM32: target triple = "wasm32-unknown-unknown"
+# CHECK_WASM32: "target-cpu"="generic"
+
+# CHECK_WASM64: target triple = "wasm64-unknown-unknown"
+# CHECK_WASM64: "target-cpu"="generic"
+
+# CHECK_WASM32_SIMD: target triple = "wasm32-unknown-unknown"
+# CHECK_WASM32_SIMD: "target-features"="{{[^"]*}}+simd128
 
 
 def main():

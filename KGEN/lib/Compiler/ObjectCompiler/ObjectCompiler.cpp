@@ -123,9 +123,12 @@ ObjectCompiler::create(StringRef basePath, CompilationOptions options,
   MojoConfig config = std::move(*configOr);
 
   StringRef linkerFileName = "ld.lld";
-  if (llvm::Triple(options.targetTriple).getObjectFormat() ==
-      llvm::Triple::MachO) {
+  llvm::Triple::ObjectFormatType objectFormat =
+      llvm::Triple(options.targetTriple).getObjectFormat();
+  if (objectFormat == llvm::Triple::MachO) {
     linkerFileName = "ld64.lld";
+  } else if (objectFormat == llvm::Triple::Wasm) {
+    linkerFileName = "wasm-ld";
   }
 
   // Find the linker.
@@ -1323,8 +1326,10 @@ static ErrorOr<BufferRef> createSharedObject(BufferRef buf,
                                              StringRef moduleName,
                                              const std::string &linker,
                                              const TargetBackend &backend) {
+  auto triple = llvm::Triple(options.targetTriple);
   llvm::StringRef libInExt = ".o";
-  llvm::StringRef libOutExt = ".so";
+  llvm::StringRef libOutExt =
+      triple.getObjectFormat() == llvm::Triple::Wasm ? ".wasm" : ".so";
   std::string objName = moduleName.str() + "-%%%%%%%" + libInExt.str();
 
   // Write .o to a file.
@@ -1341,7 +1346,6 @@ static ErrorOr<BufferRef> createSharedObject(BufferRef buf,
       std::filesystem::temp_directory_path(ec);
   sharedObjPath = sharedObjPath / sharedObjName;
 
-  auto triple = llvm::Triple(options.targetTriple);
   std::string version = triple.getOSVersion().getAsString();
   std::string arch = "unknown";
   if (triple.getArch() == llvm::Triple::ArchType::aarch64)
@@ -1352,6 +1356,8 @@ static ErrorOr<BufferRef> createSharedObject(BufferRef buf,
   StringRef linkerFlavor = "gnu";
   if (triple.getObjectFormat() == llvm::Triple::MachO) {
     linkerFlavor = "darwin";
+  } else if (triple.getObjectFormat() == llvm::Triple::Wasm) {
+    linkerFlavor = "wasm";
   }
 
   // Call lld to generate a dynamic library.
@@ -1360,7 +1366,21 @@ static ErrorOr<BufferRef> createSharedObject(BufferRef buf,
   // For MACHO (on MacOS)
   //  ld64.lld -platform_version macos 16.0 16.0 -arch arm64
   //           -dylib tmp.o -o tmp.so -undefined dynamic_lookup
+  // For Wasm:
+  //  wasm-ld -shared --experimental-pic tmp.o -o tmp.wasm
   SmallVector<StringRef> lldArgs = [&]() -> SmallVector<StringRef> {
+    if (triple.getObjectFormat() == llvm::Triple::Wasm) {
+      // Wasm dynamic libraries follow the experimental wasm dylib ABI and
+      // require PIC objects; there is no ELF-style -shared default.
+      SmallVector<StringRef> args = {linker, "-flavor", linkerFlavor, "-shared",
+                                     "--experimental-pic"};
+      if (!options.emissionLinkOptions.empty())
+        args.push_back(options.emissionLinkOptions.c_str());
+      args.push_back(objFilePath.c_str());
+      args.push_back("-o");
+      args.push_back(sharedObjPath.c_str());
+      return args;
+    }
     if (triple.getObjectFormat() == llvm::Triple::MachO) {
       SmallVector<StringRef> args{
           linker,       "-flavor",       linkerFlavor,     "-platform_version",
